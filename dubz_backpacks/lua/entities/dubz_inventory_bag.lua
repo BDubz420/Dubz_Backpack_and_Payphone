@@ -27,9 +27,11 @@ local config = DUBZ_INVENTORY.Config or {
 }
 
 local bagDefinitions = config.Backpacks or {}
+local fallbackModel = "models/props_c17/BriefCase001a.mdl"
+
 local defaultBag = bagDefinitions["dubz_inventory_bag"] or {
     PrintName    = "Dubz Backpack",
-    Model        = "models/props_c17/BriefCase001a.mdl",
+    Model        = fallbackModel,
     Category     = config.Category or "Dubz Backpacks",
     Capacity     = config.Capacity or 10,
     AttachOffset = Vector(-5, 12, -3),
@@ -58,6 +60,14 @@ local function containerCapacity(container)
 
     local bagCfg = bagDefinitions[container:GetClass()] or defaultBag
     return bagCfg.Capacity or config.Capacity or 10
+end
+
+local function ensureModelPath(modelPath)
+    if modelPath and modelPath ~= "" and util.IsValidModel(modelPath) then
+        return modelPath
+    end
+
+    return fallbackModel
 end
 
 local function subMaterialsMatch(a, b)
@@ -750,13 +760,15 @@ end
 
 function BaseBag:GetBagModel()
     local cfg = self:GetBagConfig()
-    return cfg.Model or defaultBag.Model
+    return ensureModelPath(cfg.Model or defaultBag.Model or config.Model)
 end
 
 function BaseBag:Initialize()
     if CLIENT then return end
 
-    self:SetModel(self:GetBagModel())
+    local modelPath = self:GetBagModel()
+    util.PrecacheModel(modelPath)
+    self:SetModel(modelPath)
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
@@ -968,7 +980,7 @@ list.Set("SpawnableEntities", "dubz_inventory_bag", {
     PrintName = ENT.PrintName,
     ClassName = "dubz_inventory_bag",
     Category = ENT.Category,
-    Model = defaultBag.Model or config.Model or "models/props_c17/BriefCase001a.mdl"
+    Model = ensureModelPath(defaultBag.Model or config.Model)
 })
 
 for className, cfg in pairs(bagDefinitions) do
@@ -984,7 +996,7 @@ for className, cfg in pairs(bagDefinitions) do
             PrintName = newEnt.PrintName,
             ClassName = className,
             Category = newEnt.Category or defaultBag.Category,
-            Model = newEnt:GetBagModel() or cfg.Model or defaultBag.Model
+            Model = ensureModelPath(newEnt:GetBagModel() or cfg.Model or defaultBag.Model)
         })
     end
 end
