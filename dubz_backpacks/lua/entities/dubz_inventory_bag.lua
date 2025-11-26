@@ -719,17 +719,6 @@ if SERVER then
         equipBag(ply, ent)
     end)
 
-    hook.Add("KeyPress", "DubzInventory_RClickPickup", function(ply, key)
-        if key ~= IN_ATTACK2 then return end
-        if IsValid(ply.DubzInventoryBag) then return end
-
-        local tr = ply:GetEyeTrace()
-        local ent = tr.Entity
-        if not verifyContainer(ply, ent) then return end
-        if tr.HitPos:DistToSqr(ply:EyePos()) > 22500 then return end
-
-        equipBag(ply, ent)
-    end)
 end
 
 --------------------------------------------------------------------
@@ -741,6 +730,7 @@ BaseBag.Base        = "base_anim"
 BaseBag.PrintName   = defaultBag.PrintName
 BaseBag.Category    = defaultBag.Category or config.Category or "Dubz Backpacks"
 BaseBag.Spawnable   = true
+BaseBag.AdminSpawnable = true
 BaseBag.RenderGroup = RENDERGROUP_OPAQUE
 BaseBag.BagConfig   = defaultBag
 
@@ -870,11 +860,19 @@ function BaseBag:Use(activator)
     if self.IsCarried then
         if self.BagOwner ~= activator then
             DUBZ_INVENTORY.SendTip(activator, "Someone else is wearing this bag")
+            return
         end
+
+        DUBZ_INVENTORY.OpenFor(activator, self)
         return
     end
 
-    DUBZ_INVENTORY.OpenFor(activator, self)
+    if IsValid(activator.DubzInventoryBag) then
+        DUBZ_INVENTORY.SendTip(activator, "You already have a backpack equipped")
+        return
+    end
+
+    equipBag(activator, self)
 end
 
 -----------------------------------------------------
@@ -971,6 +969,8 @@ for className, cfg in pairs(bagDefinitions) do
         local newEnt = table.Copy(BaseBag)
         newEnt.PrintName = cfg.PrintName or defaultBag.PrintName
         newEnt.Category  = cfg.Category or defaultBag.Category
+        newEnt.Spawnable = true
+        newEnt.AdminSpawnable = true
         newEnt.BagConfig = cfg
         scripted_ents.Register(newEnt, className)
     end
