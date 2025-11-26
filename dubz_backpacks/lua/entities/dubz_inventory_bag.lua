@@ -963,6 +963,13 @@ ENT = table.Copy(BaseBag)
 ENT.PrintName = defaultBag.PrintName
 ENT.Category  = defaultBag.Category or config.Category or "Dubz Backpacks"
 ENT.BagConfig = defaultBag
+scripted_ents.Register(ENT, "dubz_inventory_bag")
+list.Set("SpawnableEntities", "dubz_inventory_bag", {
+    PrintName = ENT.PrintName,
+    ClassName = "dubz_inventory_bag",
+    Category = ENT.Category,
+    Model = defaultBag.Model or config.Model or "models/props_c17/BriefCase001a.mdl"
+})
 
 for className, cfg in pairs(bagDefinitions) do
     if className ~= "dubz_inventory_bag" then
@@ -973,6 +980,12 @@ for className, cfg in pairs(bagDefinitions) do
         newEnt.AdminSpawnable = true
         newEnt.BagConfig = cfg
         scripted_ents.Register(newEnt, className)
+        list.Set("SpawnableEntities", className, {
+            PrintName = newEnt.PrintName,
+            ClassName = className,
+            Category = newEnt.Category or defaultBag.Category,
+            Model = newEnt:GetBagModel() or cfg.Model or defaultBag.Model
+        })
     end
 end
 
