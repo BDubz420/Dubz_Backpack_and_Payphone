@@ -27,9 +27,11 @@ local config = DUBZ_INVENTORY.Config or {
 }
 
 local bagDefinitions = config.Backpacks or {}
+local fallbackModel = "models/props_c17/BriefCase001a.mdl"
+
 local defaultBag = bagDefinitions["dubz_inventory_bag"] or {
     PrintName    = "Dubz Backpack",
-    Model        = "models/props_c17/BriefCase001a.mdl",
+    Model        = fallbackModel,
     Category     = config.Category or "Dubz Backpacks",
     Capacity     = config.Capacity or 10,
     AttachOffset = Vector(-5, 12, -3),
@@ -58,6 +60,20 @@ local function containerCapacity(container)
 
     local bagCfg = bagDefinitions[container:GetClass()] or defaultBag
     return bagCfg.Capacity or config.Capacity or 10
+end
+
+local function ensureModelPath(modelPath)
+    if modelPath and modelPath ~= "" and util.IsValidModel(modelPath) then
+        return modelPath
+    end
+
+    return fallbackModel
+end
+
+local function precacheBagModel(modelPath)
+    local resolved = ensureModelPath(modelPath)
+    util.PrecacheModel(resolved)
+    return resolved
 end
 
 local function subMaterialsMatch(a, b)
@@ -719,17 +735,6 @@ if SERVER then
         equipBag(ply, ent)
     end)
 
-    hook.Add("KeyPress", "DubzInventory_RClickPickup", function(ply, key)
-        if key ~= IN_ATTACK2 then return end
-        if IsValid(ply.DubzInventoryBag) then return end
-
-        local tr = ply:GetEyeTrace()
-        local ent = tr.Entity
-        if not verifyContainer(ply, ent) then return end
-        if tr.HitPos:DistToSqr(ply:EyePos()) > 22500 then return end
-
-        equipBag(ply, ent)
-    end)
 end
 
 --------------------------------------------------------------------
@@ -741,6 +746,7 @@ BaseBag.Base        = "base_anim"
 BaseBag.PrintName   = defaultBag.PrintName
 BaseBag.Category    = defaultBag.Category or config.Category or "Dubz Backpacks"
 BaseBag.Spawnable   = true
+BaseBag.AdminSpawnable = true
 BaseBag.RenderGroup = RENDERGROUP_OPAQUE
 BaseBag.BagConfig   = defaultBag
 
@@ -760,13 +766,15 @@ end
 
 function BaseBag:GetBagModel()
     local cfg = self:GetBagConfig()
-    return cfg.Model or defaultBag.Model
+    return precacheBagModel(cfg.Model or defaultBag.Model or config.Model)
 end
 
 function BaseBag:Initialize()
+    local modelPath = self:GetBagModel()
+    self:SetModel(modelPath)
+
     if CLIENT then return end
 
-    self:SetModel(self:GetBagModel())
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
@@ -778,8 +786,14 @@ function BaseBag:Initialize()
     self.BagOwner      = nil
 
     local phys = self:GetPhysicsObject()
+    if not IsValid(phys) then
+        self:PhysicsInit(SOLID_VPHYSICS)
+        phys = self:GetPhysicsObject()
+    end
+
     if IsValid(phys) then
         phys:Wake()
+        phys:EnableMotion(true)
     end
 end
 
@@ -870,11 +884,19 @@ function BaseBag:Use(activator)
     if self.IsCarried then
         if self.BagOwner ~= activator then
             DUBZ_INVENTORY.SendTip(activator, "Someone else is wearing this bag")
+            return
         end
+
+        DUBZ_INVENTORY.OpenFor(activator, self)
         return
     end
 
-    DUBZ_INVENTORY.OpenFor(activator, self)
+    if IsValid(activator.DubzInventoryBag) then
+        DUBZ_INVENTORY.SendTip(activator, "You already have a backpack equipped")
+        return
+    end
+
+    equipBag(activator, self)
 end
 
 -----------------------------------------------------
@@ -965,14 +987,29 @@ ENT = table.Copy(BaseBag)
 ENT.PrintName = defaultBag.PrintName
 ENT.Category  = defaultBag.Category or config.Category or "Dubz Backpacks"
 ENT.BagConfig = defaultBag
+scripted_ents.Register(ENT, "dubz_inventory_bag")
+list.Set("SpawnableEntities", "dubz_inventory_bag", {
+    PrintName = ENT.PrintName,
+    ClassName = "dubz_inventory_bag",
+    Category = ENT.Category,
+    Model = ensureModelPath(defaultBag.Model or config.Model)
+})
 
 for className, cfg in pairs(bagDefinitions) do
     if className ~= "dubz_inventory_bag" then
         local newEnt = table.Copy(BaseBag)
         newEnt.PrintName = cfg.PrintName or defaultBag.PrintName
         newEnt.Category  = cfg.Category or defaultBag.Category
+        newEnt.Spawnable = true
+        newEnt.AdminSpawnable = true
         newEnt.BagConfig = cfg
         scripted_ents.Register(newEnt, className)
+        list.Set("SpawnableEntities", className, {
+            PrintName = newEnt.PrintName,
+            ClassName = className,
+            Category = newEnt.Category or defaultBag.Category,
+            Model = ensureModelPath(newEnt:GetBagModel() or cfg.Model or defaultBag.Model)
+        })
     end
 end
 
