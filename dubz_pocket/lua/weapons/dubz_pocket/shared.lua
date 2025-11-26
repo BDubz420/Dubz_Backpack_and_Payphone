@@ -118,7 +118,10 @@ function SWEP:SecondaryAttack()
 end
 
 function SWEP:Reload()
-    if CLIENT then return end
+    if CLIENT then
+        DarkRP.openPocketMenu()
+        return
+    end
 
     local owner = self:GetOwner()
     if not IsValid(owner) then return end

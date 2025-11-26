@@ -70,6 +70,12 @@ local function ensureModelPath(modelPath)
     return fallbackModel
 end
 
+local function precacheBagModel(modelPath)
+    local resolved = ensureModelPath(modelPath)
+    util.PrecacheModel(resolved)
+    return resolved
+end
+
 local function subMaterialsMatch(a, b)
     if (not a) and (not b) then return true end
     if (not a) or (not b) then return false end
@@ -760,15 +766,15 @@ end
 
 function BaseBag:GetBagModel()
     local cfg = self:GetBagConfig()
-    return ensureModelPath(cfg.Model or defaultBag.Model or config.Model)
+    return precacheBagModel(cfg.Model or defaultBag.Model or config.Model)
 end
 
 function BaseBag:Initialize()
+    local modelPath = self:GetBagModel()
+    self:SetModel(modelPath)
+
     if CLIENT then return end
 
-    local modelPath = self:GetBagModel()
-    util.PrecacheModel(modelPath)
-    self:SetModel(modelPath)
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
@@ -780,8 +786,14 @@ function BaseBag:Initialize()
     self.BagOwner      = nil
 
     local phys = self:GetPhysicsObject()
+    if not IsValid(phys) then
+        self:PhysicsInit(SOLID_VPHYSICS)
+        phys = self:GetPhysicsObject()
+    end
+
     if IsValid(phys) then
         phys:Wake()
+        phys:EnableMotion(true)
     end
 end
 
