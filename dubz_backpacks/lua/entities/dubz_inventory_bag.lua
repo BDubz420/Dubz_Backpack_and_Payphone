@@ -730,6 +730,7 @@ BaseBag.Base        = "base_anim"
 BaseBag.PrintName   = defaultBag.PrintName
 BaseBag.Category    = defaultBag.Category or config.Category or "Dubz Backpacks"
 BaseBag.Spawnable   = true
+BaseBag.AdminSpawnable = true
 BaseBag.RenderGroup = RENDERGROUP_OPAQUE
 BaseBag.BagConfig   = defaultBag
 
@@ -968,6 +969,8 @@ for className, cfg in pairs(bagDefinitions) do
         local newEnt = table.Copy(BaseBag)
         newEnt.PrintName = cfg.PrintName or defaultBag.PrintName
         newEnt.Category  = cfg.Category or defaultBag.Category
+        newEnt.Spawnable = true
+        newEnt.AdminSpawnable = true
         newEnt.BagConfig = cfg
         scripted_ents.Register(newEnt, className)
     end
